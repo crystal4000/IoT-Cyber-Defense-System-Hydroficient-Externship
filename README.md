@@ -76,6 +76,7 @@ The system simulates IoT devices sending telemetry data through an MQTT broker w
 Integrated machine learning techniques to detect abnormal telemetry patterns that bypass rule-based defenses.
 
 Used anomaly detection models to:
+
 - Identify unusual pressure/flow patterns
 - Flag suspicious but valid-looking data
 - Enhance system visibility beyond static rules
@@ -84,21 +85,16 @@ Used anomaly detection models to:
 
 ## 📊 Dashboard Preview
 
-Add these files to the `screenshots/` folder:
-
-- `dashboard-overview.png`
-- `attack-detection.png`
-- `terminal-logs.png`
-
-Then they will render automatically here:
-
 ### Dashboard Overview
+
 ![Dashboard Overview](./screenshots/dashboard-overview.png)
 
 ### Attack Detection
+
 ![Attack Detection](./screenshots/attack-detection.png)
 
 ### Terminal Logs
+
 ![Terminal Logs](./screenshots/terminal-logs.png)
 
 ---
