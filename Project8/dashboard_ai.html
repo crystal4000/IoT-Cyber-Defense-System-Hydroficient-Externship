@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HYDRO SENTINEL AI — Security Operations Center</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-base:    #030b13;
+      --bg-panel:   #060f1c;
+      --bg-card:    #08172a;
+      --bg-surface: #0c1e33;
+
+      --green:      #00ff88;
+      --green-dim:  rgba(0,255,136,0.08);
+      --green-glow: rgba(0,255,136,0.35);
+
+      --cyan:       #00ccff;
+      --cyan-dim:   rgba(0,204,255,0.07);
+      --cyan-glow:  rgba(0,204,255,0.3);
+
+      --red:        #ff2b4a;
+      --red-dim:    rgba(255,43,74,0.1);
+      --red-glow:   rgba(255,43,74,0.45);
+
+      /* AI-specific orange accent */
+      --orange:     #ff8c00;
+      --orange-dim: rgba(255,140,0,0.1);
+      --orange-glow:rgba(255,140,0,0.4);
+      --orange-mid: rgba(255,140,0,0.22);
+
+      --amber:      #ffb800;
+      --amber-dim:  rgba(255,184,0,0.08);
+
+      --text-hi:    #d0e8f8;
+      --text-mid:   #5a84a2;
+      --text-lo:    #2d4a5e;
+
+      --border:     rgba(0,180,255,0.1);
+      --border-lit: rgba(0,255,136,0.25);
+    }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { font-size: 14px; }
+
+    body {
+      font-family: 'Barlow Condensed', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-hi);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: radial-gradient(circle, rgba(0,180,255,0.07) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Boot Overlay ─────────────────────────────── */
+    #boot {
+      position: fixed; inset: 0;
+      background: var(--bg-base);
+      z-index: 10000;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.4rem;
+      transition: opacity 0.6s ease;
+    }
+    #boot.fade-out { opacity: 0; pointer-events: none; }
+
+    .boot-logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.2rem; font-weight: 900;
+      letter-spacing: 0.3em;
+      color: var(--orange);
+      text-shadow: 0 0 20px var(--orange-glow), 0 0 60px rgba(255,140,0,0.12);
+    }
+    .boot-ai-badge {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem; letter-spacing: 0.22em;
+      color: var(--orange); opacity: 0.8;
+    }
+    .boot-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem; letter-spacing: 0.16em;
+      color: var(--text-mid);
+    }
+    .boot-lines { width: 360px; display: flex; flex-direction: column; gap: 0.3rem; }
+    .boot-line {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.63rem; color: var(--green);
+      letter-spacing: 0.07em;
+      opacity: 0; animation: bootLine 0.25s ease forwards;
+    }
+    .boot-line.ai { color: var(--orange); }
+    .boot-line:nth-child(1) { animation-delay: 0.15s; }
+    .boot-line:nth-child(2) { animation-delay: 0.4s; }
+    .boot-line:nth-child(3) { animation-delay: 0.65s; }
+    .boot-line:nth-child(4) { animation-delay: 0.9s; }
+    .boot-line:nth-child(5) { animation-delay: 1.15s; }
+    .boot-line:nth-child(6) { animation-delay: 1.35s; }
+    @keyframes bootLine {
+      from { opacity:0; transform:translateX(-8px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+    .boot-bar-wrap { width: 360px; height: 2px; background: rgba(255,255,255,0.04); }
+    .boot-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--orange));
+      box-shadow: 0 0 8px var(--orange-glow);
+      animation: bootFill 1.7s ease forwards;
+      animation-delay: 0.15s;
+    }
+    @keyframes bootFill { from { width:0%; } to { width:100%; } }
+
+    /* ── Threat flash ─────────────────────────────── */
+    #threat-flash {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 9990;
+    }
+    #threat-flash.red    { animation: flashRed    0.5s ease-out; }
+    #threat-flash.orange { animation: flashOrange 0.5s ease-out; }
+    @keyframes flashRed    { 0%{box-shadow:inset 0 0 70px rgba(255,43,74,0.5);}  100%{box-shadow:inset 0 0 0 transparent;} }
+    @keyframes flashOrange { 0%{box-shadow:inset 0 0 70px rgba(255,140,0,0.45);} 100%{box-shadow:inset 0 0 0 transparent;} }
+
+    /* ── Header ───────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 200;
+      height: 60px;
+      background: rgba(3,11,19,0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 1.75rem;
+    }
+    header::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--cyan) 30%, var(--orange) 70%, transparent 100%);
+      opacity: 0.4;
+      animation: headerShimmer 5s ease-in-out infinite;
+    }
+    @keyframes headerShimmer { 0%,100%{opacity:0.2;} 50%{opacity:0.7;} }
+
+    .brand { display: flex; align-items: center; gap: 0.85rem; }
+    .brand-shield {
+      width: 36px; height: 36px;
+      border: 1.5px solid var(--orange);
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: var(--orange);
+      position: relative; overflow: hidden;
+    }
+    .brand-shield::before {
+      content: '';
+      position: absolute; top: -120%; left: 0; right: 0; height: 120%;
+      background: linear-gradient(transparent, rgba(255,140,0,0.2), transparent);
+      animation: shieldSweep 2.5s ease-in-out infinite;
+    }
+    @keyframes shieldSweep { 0%{top:-120%;} 100%{top:120%;} }
+
+    .brand-text-wrap { display: flex; flex-direction: column; }
+    .brand-name {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 0.2em; color: var(--cyan);
+    }
+    .brand-ai-tag {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.56rem; letter-spacing: 0.18em;
+      color: var(--orange);
+    }
+    .brand-tagline {
+      font-size: 0.58rem; letter-spacing: 0.1em;
+      color: var(--text-mid); text-transform: uppercase;
+    }
+
+    .threat-pill {
+      display: flex; align-items: center; gap: 0.55rem;
+      padding: 0.3rem 0.85rem; border: 1px solid; border-radius: 2px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem; letter-spacing: 0.12em;
+      transition: all 0.3s ease;
+    }
+    .threat-pill.normal { border-color:rgba(0,255,136,0.35); background:var(--green-dim); color:var(--green); }
+    .threat-pill.critical{ border-color:rgba(255,43,74,0.5);  background:var(--red-dim);   color:var(--red);   animation:alertPulseBox 0.6s ease infinite; }
+    .threat-pill.ai-warn  { border-color:rgba(255,140,0,0.5);  background:var(--orange-dim);color:var(--orange);animation:alertPulseBox 0.6s ease infinite; }
+    @keyframes alertPulseBox { 0%,100%{box-shadow:0 0 0 transparent;} 50%{box-shadow:0 0 14px var(--orange-glow);} }
+
+    .threat-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .threat-pill.normal .threat-dot { animation:pulse 2s ease-in-out infinite; }
+    .threat-pill.critical .threat-dot,
+    .threat-pill.ai-warn  .threat-dot { animation:fastPulse 0.4s ease-in-out infinite; }
+    @keyframes pulse     { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.35;transform:scale(1.4);} }
+    @keyframes fastPulse { 0%,100%{opacity:1;} 50%{opacity:0.15;} }
+
+    .header-right { display:flex; align-items:center; gap:1.25rem; }
+    .live-pill {
+      display:flex; align-items:center; gap:0.45rem;
+      font-family:'Share Tech Mono',monospace;
+      font-size:0.68rem; letter-spacing:0.12em; color:var(--green);
+    }
+    .live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s ease-in-out infinite; }
+    .sys-clock {
+      font-family:'Share Tech Mono',monospace;
+      font-size:1.05rem; color:var(--cyan); letter-spacing:0.1em; min-width:80px;
+    }
+
+    /* ── Operator strip ───────────────────────────── */
+    .op-strip {
+      background: rgba(255,140,0,0.02);
+      border-bottom: 1px solid var(--border);
+      padding: 0.45rem 1.75rem;
+      display: flex; align-items: center; gap: 1.5rem;
+      font-size: 0.68rem; color: var(--text-mid);
+      letter-spacing: 0.07em; flex-wrap: wrap;
+    }
+    .op-strip .mono { font-family:'Share Tech Mono',monospace; color:var(--orange); font-size:0.65rem; }
+    .op-sep { width:1px; height:12px; background:var(--border); flex-shrink:0; }
+
+    /* ── Layout ───────────────────────────────────── */
+    .wrap { padding:1.25rem 1.75rem 2rem; max-width:1720px; margin:0 auto; }
+
+    /* ── Stat tiles ───────────────────────────────── */
+    .stat-tiles {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.9rem; margin-bottom: 1.25rem;
+    }
+    .tile {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:3px; padding:0.9rem 1.1rem;
+      display:flex; align-items:center; gap:0.85rem;
+      position:relative; overflow:hidden;
+      animation:tileReveal 0.5s ease both;
+    }
+    .tile:nth-child(1){animation-delay:0.1s;}
+    .tile:nth-child(2){animation-delay:0.2s;}
+    .tile:nth-child(3){animation-delay:0.3s;}
+    .tile:nth-child(4){animation-delay:0.4s;}
+    .tile:nth-child(5){animation-delay:0.5s;}
+    @keyframes tileReveal { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+
+    .tile::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; }
+    .tile.green::before  { background:var(--green); }
+    .tile.red::before    { background:var(--red); }
+    .tile.orange::before { background:var(--orange); }
+    .tile.cyan::before   { background:var(--cyan); }
+    .tile.amber::before  { background:var(--amber); }
+
+    .tile-icon { font-size:1.5rem; opacity:0.6; }
+    .tile-body { flex:1; }
+    .tile-val {
+      font-family:'Orbitron',monospace; font-size:1.75rem;
+      font-weight:700; line-height:1;
+      transition: transform 0.2s ease;
+    }
+    .tile.green .tile-val  { color:var(--green); }
+    .tile.red   .tile-val  { color:var(--red); }
+    .tile.orange.tile-val,
+    .tile.orange .tile-val { color:var(--orange); }
+    .tile.cyan  .tile-val  { color:var(--cyan); }
+    .tile.amber .tile-val  { color:var(--amber); }
+    .tile-label { font-size:0.63rem; letter-spacing:0.14em; color:var(--text-mid); text-transform:uppercase; margin-top:0.2rem; }
+
+    /* ── Content grid ─────────────────────────────── */
+    .content-grid { display:grid; grid-template-columns:1fr 360px; gap:1.25rem; align-items:start; }
+    .left-col  { display:flex; flex-direction:column; gap:1.25rem; }
+    .right-col { display:flex; flex-direction:column; gap:1.25rem; }
+
+    /* ── Panel ────────────────────────────────────── */
+    .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; overflow:hidden; }
+    .panel-hdr {
+      padding:0.55rem 1rem;
+      background:rgba(0,180,255,0.04);
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .panel-title {
+      font-family:'Share Tech Mono',monospace;
+      font-size:0.68rem; letter-spacing:0.16em; color:var(--cyan);
+      display:flex; align-items:center; gap:0.45rem;
+    }
+    .panel-title::before { content:'//'; color:var(--text-lo); font-size:0.6rem; }
+
+    .panel-chip {
+      font-family:'Share Tech Mono',monospace;
+      font-size:0.6rem; padding:0.18rem 0.55rem;
+      border-radius:2px; letter-spacing:0.1em; border:1px solid;
+    }
+    .chip-green  { color:var(--green);  border-color:rgba(0,255,136,0.3);  background:var(--green-dim); }
+    .chip-red    { color:var(--red);    border-color:rgba(255,43,74,0.3);   background:var(--red-dim); }
+    .chip-orange { color:var(--orange); border-color:rgba(255,140,0,0.35);  background:var(--orange-dim); }
+
+    /* ── Zone cards ───────────────────────────────── */
+    .zones-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; padding:1rem; }
+
+    .sensor-card {
+      background:var(--bg-surface); border:1px solid var(--border);
+      border-radius:3px; padding:1.1rem;
+      position:relative; overflow:hidden;
+      transition:border-color 0.3s, box-shadow 0.3s;
+      animation:cardReveal 0.6s ease both;
+    }
+    .sensor-card:nth-child(1){animation-delay:0.15s;}
+    .sensor-card:nth-child(2){animation-delay:0.3s;}
+    .sensor-card:nth-child(3){animation-delay:0.45s;}
+    @keyframes cardReveal { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+
+    .sensor-card::after {
+      content:''; position:absolute;
+      top:0; left:-200%; width:200%; height:2px;
+      background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+    }
+    .sensor-card.updating::after { animation:scanTop 0.5s ease-out forwards; }
+    @keyframes scanTop { from{left:-200%;} to{left:200%;} }
+
+    .sensor-card.attack-active {
+      border-color:var(--red) !important;
+      box-shadow:0 0 20px var(--red-glow), inset 0 0 30px rgba(255,43,74,0.05);
+      animation:threatShake 0.4s ease-in-out;
+    }
+    /* AI anomaly — orange glow */
+    .sensor-card.ai-alert-active {
+      border-color:var(--orange) !important;
+      box-shadow:0 0 22px var(--orange-glow), inset 0 0 30px rgba(255,140,0,0.06);
+      animation:aiPulseCard 1s ease-in-out;
+    }
+    .sensor-card.ai-alert-active::after {
+      background:linear-gradient(90deg,transparent,var(--orange),transparent);
+      animation:scanTop 0.6s ease-out forwards;
+    }
+    @keyframes aiPulseCard {
+      0%,100%{box-shadow:0 0 0 transparent;}
+      50%    {box-shadow:0 0 28px var(--orange-glow);}
+    }
+    @keyframes threatShake {
+      0%,100%{transform:translateX(0);}
+      20%{transform:translateX(-5px);}
+      60%{transform:translateX(5px);}
+    }
+
+    .zone-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.9rem; }
+    .zone-icon { font-size:1.3rem; margin-bottom:0.2rem; opacity:0.75; }
+    .zone-name { font-family:'Orbitron',monospace; font-size:0.6rem; font-weight:600; letter-spacing:0.16em; color:var(--cyan); }
+    .zone-sub  { font-size:0.62rem; color:var(--text-mid); letter-spacing:0.04em; margin-top:0.15rem; }
+
+    .zone-status { display:flex; align-items:center; gap:0.35rem; font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:var(--text-mid); letter-spacing:0.08em; }
+    .status-dot { width:6px; height:6px; border-radius:50%; background:var(--text-lo); transition:background 0.3s, box-shadow 0.3s; }
+    .status-dot.online { background:var(--green); box-shadow:0 0 6px var(--green-glow); animation:pulse 2s ease-in-out infinite; }
+
+    /* SVG gauge */
+    .gauge-wrap { display:flex; justify-content:center; align-items:center; position:relative; margin:0.6rem 0 0.8rem; }
+    .gauge-svg { width:88px; height:88px; }
+    .g-track { fill:none; stroke:rgba(255,255,255,0.05); stroke-width:6; }
+    .g-fill {
+      fill:none; stroke:var(--cyan); stroke-width:6; stroke-linecap:round;
+      stroke-dasharray:238.76; stroke-dashoffset:238.76;
+      transform-origin:44px 44px; transform:rotate(-90deg);
+      transition:stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1), stroke 0.3s;
+      filter:drop-shadow(0 0 3px rgba(0,204,255,0.5));
+    }
+    .g-fill.danger     { stroke:var(--red);    filter:drop-shadow(0 0 4px var(--red-glow)); }
+    .g-fill.ai-warning { stroke:var(--orange); filter:drop-shadow(0 0 4px var(--orange-glow)); }
+
+    .gauge-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .gauge-val { font-family:'Share Tech Mono',monospace; font-size:1rem; font-weight:700; color:var(--cyan); line-height:1; transition:color 0.3s; }
+    .gauge-val.danger     { color:var(--red); }
+    .gauge-val.ai-warning { color:var(--orange); }
+    .gauge-unit { font-size:0.55rem; letter-spacing:0.1em; color:var(--text-mid); margin-top:0.15rem; }
+
+    .metric-row { display:flex; justify-content:space-between; align-items:center; padding:0.38rem 0; border-top:1px solid rgba(255,255,255,0.04); }
+    .metric-label { font-size:0.66rem; letter-spacing:0.07em; text-transform:uppercase; color:var(--text-mid); }
+    .metric-value { font-family:'Share Tech Mono',monospace; font-size:0.88rem; color:var(--cyan); transition:color 0.3s, text-shadow 0.3s; }
+    .metric-value.updating  { color:var(--green);  text-shadow:0 0 8px var(--green-glow); }
+    .metric-value.ai-warning{ color:var(--orange); text-shadow:0 0 8px var(--orange-glow); }
+
+    .pressure-fill { display:none; }
+
+    /* ── Security status panel ────────────────────── */
+    .sec-body { padding:1.1rem; }
+    .sec-state-label { font-family:'Share Tech Mono',monospace; font-size:0.62rem; letter-spacing:0.14em; color:var(--text-mid); text-transform:uppercase; margin-bottom:0.4rem; }
+    #security-status { font-size:0.82rem; line-height:1.55; color:var(--text-hi); transition:color 0.3s; }
+    #security-status.ok     { color:var(--green); }
+    #security-status.threat { color:var(--red); }
+    #security-status.ai-warn{ color:var(--orange); }
+
+    .last-check-row { margin-top:0.6rem; font-size:0.68rem; color:var(--text-mid); }
+    #last-check { font-family:'Share Tech Mono',monospace; color:var(--cyan); }
+
+    /* Rule-based attack alert (red) */
+    .attack-alert {
+      margin-top:1rem; padding:0.8rem;
+      background:var(--red-dim); border:1px solid rgba(255,43,74,0.35);
+      border-radius:3px; display:none; animation:slideIn 0.3s ease;
+    }
+    .attack-alert.visible { display:block; }
+
+    /* AI anomaly alert (orange) */
+    .ai-alert {
+      margin-top:1rem; padding:0.8rem;
+      background:var(--orange-dim); border:1px solid rgba(255,140,0,0.35);
+      border-radius:3px; display:none; animation:slideIn 0.3s ease;
+    }
+    .ai-alert.visible { display:block; }
+
+    @keyframes slideIn { from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
+
+    .atk-hdr {
+      display:flex; align-items:center; gap:0.4rem;
+      font-family:'Orbitron',monospace; font-size:0.65rem; font-weight:700;
+      letter-spacing:0.2em; color:var(--red);
+      margin-bottom:0.6rem;
+      animation:blinkAnim 0.7s ease infinite;
+    }
+    .ai-hdr {
+      display:flex; align-items:center; gap:0.4rem;
+      font-family:'Orbitron',monospace; font-size:0.65rem; font-weight:700;
+      letter-spacing:0.2em; color:var(--orange);
+      margin-bottom:0.6rem;
+    }
+    @keyframes blinkAnim { 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+
+    .atk-details, .ai-details {
+      display:flex; flex-direction:column; gap:0.22rem;
+      font-size:0.75rem; color:var(--text-mid);
+    }
+    .atk-details strong, .ai-details strong { color:var(--text-hi); }
+
+    .atk-blocked {
+      margin-top:0.65rem; padding:0.35rem;
+      background:var(--green-dim); border:1px solid rgba(0,255,136,0.2);
+      text-align:center; font-family:'Share Tech Mono',monospace;
+      font-size:0.63rem; letter-spacing:0.15em; color:var(--green);
+    }
+    .ai-flagged {
+      margin-top:0.65rem; padding:0.35rem;
+      background:var(--orange-dim); border:1px solid rgba(255,140,0,0.2);
+      text-align:center; font-family:'Share Tech Mono',monospace;
+      font-size:0.63rem; letter-spacing:0.15em; color:var(--orange);
+    }
+
+    /* Defense checks */
+    .def-checks { display:flex; flex-direction:column; gap:0.45rem; margin-top:1rem; }
+    .def-row {
+      display:flex; align-items:center; gap:0.65rem;
+      padding:0.45rem 0.7rem;
+      background:var(--green-dim); border:1px solid rgba(0,255,136,0.1);
+      border-radius:2px;
+    }
+    .def-row.ai-row { background:var(--orange-dim); border-color:rgba(255,140,0,0.12); }
+    .def-dot { width:14px; height:14px; border-radius:50%; background:var(--green); display:flex; align-items:center; justify-content:center; font-size:0.5rem; color:#000; font-weight:900; flex-shrink:0; }
+    .def-row.ai-row .def-dot { background:var(--orange); }
+    .def-name { flex:1; font-size:0.72rem; color:var(--text-mid); letter-spacing:0.04em; }
+    .def-state { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:var(--green); letter-spacing:0.12em; }
+    .def-row.ai-row .def-state { color:var(--orange); }
+
+    /* ── Event log ────────────────────────────────── */
+    .event-log {
+      height: 500px; overflow-y:auto;
+      padding:0.5rem 0.6rem;
+      font-family:'Share Tech Mono',monospace;
+      scrollbar-width:thin;
+      scrollbar-color:rgba(0,180,255,0.25) transparent;
+    }
+    .event-log::-webkit-scrollbar { width:4px; }
+    .event-log::-webkit-scrollbar-track { background:transparent; }
+    .event-log::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.25); border-radius:2px; }
+
+    .event-item {
+      display:grid; grid-template-columns:14px 58px 1fr; gap:0.45rem;
+      align-items:baseline; padding:0.32rem 0.4rem;
+      border-bottom:1px solid rgba(255,255,255,0.03);
+      font-size:0.67rem; animation:logSlide 0.25s ease; line-height:1.5;
+    }
+    @keyframes logSlide { from{opacity:0;transform:translateX(-6px);} to{opacity:1;transform:translateX(0);} }
+
+    .event-icon { color:var(--text-lo); font-size:0.55rem; }
+    .event-time { color:var(--text-mid); }
+    .event-message { color:var(--text-hi); word-break:break-word; }
+
+    .event-item.attack     .event-icon,
+    .event-item.attack     .event-message { color:var(--red); }
+    .event-item.valid      .event-icon,
+    .event-item.valid      .event-message { color:var(--green); }
+    .event-item.ai-anomaly .event-icon,
+    .event-item.ai-anomaly .event-message { color:var(--orange); }
+
+    /* ── Footer strip ─────────────────────────────── */
+    .footer-strip {
+      margin-top:1.25rem; background:var(--bg-card);
+      border:1px solid var(--border); border-radius:3px;
+      padding:0.85rem 1.4rem;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:1rem;
+      animation:tileReveal 0.5s ease 0.6s both;
+    }
+    .footer-label { font-family:'Share Tech Mono',monospace; font-size:0.62rem; letter-spacing:0.16em; color:var(--text-mid); text-transform:uppercase; }
+    .footer-checks { display:flex; gap:2rem; flex-wrap:wrap; }
+    .f-check { display:flex; align-items:center; gap:0.45rem; }
+    .f-led { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green-glow); animation:pulse 2s ease-in-out infinite; }
+    .f-led.orange { background:var(--orange); box-shadow:0 0 6px var(--orange-glow); }
+    .f-check-name { font-family:'Share Tech Mono',monospace; font-size:0.66rem; color:var(--text-hi); letter-spacing:0.07em; }
+    .f-check-state { font-size:0.6rem; color:var(--green); letter-spacing:0.1em; }
+    .f-check-state.orange { color:var(--orange); }
+    .footer-session { font-family:'Share Tech Mono',monospace; font-size:0.62rem; color:var(--text-mid); }
+
+    /* state classes */
+    .security-normal   { color:var(--green)  !important; }
+    .security-alert    { color:var(--red)    !important; animation:blinkAnim 0.7s ease infinite; }
+    .security-ai-alert { color:var(--orange) !important; }
+
+    /* ── Responsive ───────────────────────────────── */
+    @media(max-width:1400px){ .stat-tiles{grid-template-columns:repeat(3,1fr);} }
+    @media(max-width:1300px){ .content-grid{grid-template-columns:1fr;} .event-log{height:280px;} }
+    @media(max-width:1024px){ .zones-grid{grid-template-columns:repeat(2,1fr);} .stat-tiles{grid-template-columns:repeat(2,1fr);} }
+    @media(max-width:640px) { .zones-grid{grid-template-columns:1fr;} .op-strip{display:none;} }
+  </style>
+</head>
+<body>
+
+  <!-- Boot -->
+  <div id="boot">
+    <div class="boot-logo">HYDRO SENTINEL</div>
+    <div class="boot-ai-badge">⬡ AI-ENHANCED EDITION</div>
+    <div class="boot-sub">SECURITY OPERATIONS CENTER — INITIALIZING</div>
+    <div class="boot-bar-wrap"><div class="boot-bar-fill"></div></div>
+    <div class="boot-lines">
+      <div class="boot-line">[ OK ]  Loading mTLS certificate chain...</div>
+      <div class="boot-line">[ OK ]  HMAC-SHA256 engine ready</div>
+      <div class="boot-line">[ OK ]  Sequence counter initialized</div>
+      <div class="boot-line ai">[ OK ]  Loading anomaly detection model...</div>
+      <div class="boot-line ai">[ OK ]  AI inference engine online</div>
+      <div class="boot-line">[ OK ]  Pipeline secure — entering monitoring mode</div>
+    </div>
+  </div>
+
+  <div id="threat-flash"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-shield">🧠</div>
+      <div class="brand-text-wrap">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <div class="brand-name">HYDRO SENTINEL</div>
+          <div class="brand-ai-tag">⬡ AI</div>
+        </div>
+        <div class="brand-tagline">AI-Enhanced Water Security Operations</div>
+      </div>
+    </div>
+
+    <div class="threat-pill normal" id="threat-indicator">
+      <div class="threat-dot"></div>
+      <span id="threat-label">THREAT LEVEL: LOW</span>
+    </div>
+
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>LIVE FEED</div>
+      <div class="sys-clock" id="current-time">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- Operator strip -->
+  <div class="op-strip">
+    <span>OPERATOR:</span>
+    <span class="mono">TANIA AMANDA FREDRICK</span>
+    <div class="op-sep"></div>
+    <span>ROLE: IoT SECURITY ENGINEER</span>
+    <div class="op-sep"></div>
+    <span>SYSTEM: GRAND MARINA HOTEL — WATER MONITORING</span>
+    <div class="op-sep"></div>
+    <span>BROKER: <span class="mono">localhost:8883 (mTLS)</span></span>
+    <div class="op-sep"></div>
+    <span>AI MODEL: <span class="mono">ANOMALY DETECTOR v2</span></span>
+  </div>
+
+  <div class="wrap">
+
+    <!-- Stat tiles — 5 columns: valid / attacks / AI anomalies / total / uptime -->
+    <div class="stat-tiles">
+      <div class="tile green">
+        <div class="tile-icon">✅</div>
+        <div class="tile-body">
+          <div class="tile-val" id="stat-valid">0</div>
+          <div class="tile-label">Valid Messages</div>
+        </div>
+      </div>
+      <div class="tile red">
+        <div class="tile-icon">🚫</div>
+        <div class="tile-body">
+          <div class="tile-val" id="stat-rejected">0</div>
+          <div class="tile-label">Attacks Blocked</div>
+        </div>
+      </div>
+      <div class="tile orange">
+        <div class="tile-icon">🧠</div>
+        <div class="tile-body">
+          <div class="tile-val" id="stat-ai">0</div>
+          <div class="tile-label">AI Anomalies</div>
+        </div>
+      </div>
+      <div class="tile cyan">
+        <div class="tile-icon">📡</div>
+        <div class="tile-body">
+          <div class="tile-val" id="stat-total">0</div>
+          <div class="tile-label">Total Processed</div>
+        </div>
+      </div>
+      <div class="tile amber">
+        <div class="tile-icon">⏱</div>
+        <div class="tile-body">
+          <div class="tile-val" id="stat-uptime">00:00</div>
+          <div class="tile-label">Session Uptime</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content grid -->
+    <div class="content-grid">
+
+      <!-- Left column -->
+      <div class="left-col">
+
+        <!-- Zone cards -->
+        <div class="panel">
+          <div class="panel-hdr">
+            <div class="panel-title">MONITORED ZONES — LIVE SENSOR FEED</div>
+            <div class="panel-chip chip-orange">AI ACTIVE</div>
+          </div>
+          <div class="zones-grid">
+
+            <!-- Main Building -->
+            <div class="sensor-card" id="card-main_building">
+              <div class="zone-hdr">
+                <div>
+                  <div class="zone-icon">🏛</div>
+                  <div class="zone-name">MAIN BUILDING</div>
+                  <div class="zone-sub">Primary Water Supply</div>
+                </div>
+                <div class="zone-status">
+                  <div class="status-dot" id="status-main_building"></div>
+                  <span id="status-text-main_building">OFFLINE</span>
+                </div>
+              </div>
+              <div class="gauge-wrap">
+                <svg class="gauge-svg" viewBox="0 0 88 88">
+                  <circle class="g-track" cx="44" cy="44" r="38"/>
+                  <circle class="g-fill" id="gauge-main_building" cx="44" cy="44" r="38"/>
+                </svg>
+                <div class="gauge-center">
+                  <span class="gauge-val" id="pressure-main_building">--</span>
+                  <span class="gauge-unit">PSI</span>
+                </div>
+              </div>
+              <div style="display:none"><div class="pressure-fill" id="pressure-bar-main_building" style="width:0%"></div></div>
+              <div class="metric-row">
+                <span class="metric-label">Flow Rate</span>
+                <span class="metric-value" id="flow-main_building">-- LPM</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Gate Position</span>
+                <span class="metric-value" id="valve-main_building">--%</span>
+              </div>
+            </div>
+
+            <!-- Pool & Spa -->
+            <div class="sensor-card" id="card-pool_spa">
+              <div class="zone-hdr">
+                <div>
+                  <div class="zone-icon">🏊</div>
+                  <div class="zone-name">POOL &amp; SPA</div>
+                  <div class="zone-sub">Recreational Facilities</div>
+                </div>
+                <div class="zone-status">
+                  <div class="status-dot" id="status-pool_spa"></div>
+                  <span id="status-text-pool_spa">OFFLINE</span>
+                </div>
+              </div>
+              <div class="gauge-wrap">
+                <svg class="gauge-svg" viewBox="0 0 88 88">
+                  <circle class="g-track" cx="44" cy="44" r="38"/>
+                  <circle class="g-fill" id="gauge-pool_spa" cx="44" cy="44" r="38"/>
+                </svg>
+                <div class="gauge-center">
+                  <span class="gauge-val" id="pressure-pool_spa">--</span>
+                  <span class="gauge-unit">PSI</span>
+                </div>
+              </div>
+              <div style="display:none"><div class="pressure-fill" id="pressure-bar-pool_spa" style="width:0%"></div></div>
+              <div class="metric-row">
+                <span class="metric-label">Flow Rate</span>
+                <span class="metric-value" id="flow-pool_spa">-- LPM</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Gate Position</span>
+                <span class="metric-value" id="valve-pool_spa">--%</span>
+              </div>
+            </div>
+
+            <!-- Kitchen & Laundry -->
+            <div class="sensor-card" id="card-kitchen">
+              <div class="zone-hdr">
+                <div>
+                  <div class="zone-icon">🍽</div>
+                  <div class="zone-name">KITCHEN &amp; LAUNDRY</div>
+                  <div class="zone-sub">Service Operations</div>
+                </div>
+                <div class="zone-status">
+                  <div class="status-dot" id="status-kitchen"></div>
+                  <span id="status-text-kitchen">OFFLINE</span>
+                </div>
+              </div>
+              <div class="gauge-wrap">
+                <svg class="gauge-svg" viewBox="0 0 88 88">
+                  <circle class="g-track" cx="44" cy="44" r="38"/>
+                  <circle class="g-fill" id="gauge-kitchen" cx="44" cy="44" r="38"/>
+                </svg>
+                <div class="gauge-center">
+                  <span class="gauge-val" id="pressure-kitchen">--</span>
+                  <span class="gauge-unit">PSI</span>
+                </div>
+              </div>
+              <div style="display:none"><div class="pressure-fill" id="pressure-bar-kitchen" style="width:0%"></div></div>
+              <div class="metric-row">
+                <span class="metric-label">Flow Rate</span>
+                <span class="metric-value" id="flow-kitchen">-- LPM</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Gate Position</span>
+                <span class="metric-value" id="valve-kitchen">--%</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Security + AI status -->
+        <div class="panel">
+          <div class="panel-hdr">
+            <div class="panel-title security-normal" id="security-header">SECURITY STATUS</div>
+            <div class="panel-chip chip-green" id="sec-badge">SECURE</div>
+          </div>
+          <div class="sec-body">
+            <div class="sec-state-label">System Status</div>
+            <div id="security-status" class="ok">
+              All systems operating normally. Rules + AI monitoring active.
+            </div>
+            <div class="last-check-row">
+              Last security check: <span id="last-check">--:--:--</span>
+            </div>
+
+            <!-- Rule-based attack alert -->
+            <div class="attack-alert" id="attack-alert">
+              <div class="atk-hdr">⚠ ATTACK DETECTED &amp; BLOCKED</div>
+              <div class="atk-details">
+                <span><strong>Type:</strong> <span id="attack-type">--</span></span>
+                <span><strong>Source:</strong> <span id="attack-source">--</span></span>
+                <span><strong>Target:</strong> <span id="attack-target">--</span></span>
+              </div>
+              <div class="atk-blocked">✓ INTERCEPTED BY RULE-BASED DEFENSE</div>
+            </div>
+
+            <!-- AI anomaly alert -->
+            <div class="ai-alert" id="ai-alert">
+              <div class="ai-hdr">🧠 AI ANOMALY DETECTED</div>
+              <div class="ai-details">
+                <span><strong>Source:</strong> <span id="ai-source">--</span></span>
+                <span><strong>Detail:</strong> <span id="ai-detail">--</span></span>
+                <span><strong>AI Score:</strong> <span id="ai-score">--</span></span>
+              </div>
+              <div class="ai-flagged">⚠ FLAGGED FOR REVIEW — passed rule checks</div>
+            </div>
+
+            <!-- Defense integrity rows -->
+            <div class="def-checks">
+              <div class="def-row">
+                <div class="def-dot">✓</div>
+                <span class="def-name">HMAC-SHA256 Signature Verification</span>
+                <span class="def-state">ACTIVE</span>
+              </div>
+              <div class="def-row">
+                <div class="def-dot">✓</div>
+                <span class="def-name">Timestamp Freshness (30s window)</span>
+                <span class="def-state">ACTIVE</span>
+              </div>
+              <div class="def-row">
+                <div class="def-dot">✓</div>
+                <span class="def-name">Sequence Counter Anti-Replay</span>
+                <span class="def-state">ACTIVE</span>
+              </div>
+              <div class="def-row ai-row">
+                <div class="def-dot">⬡</div>
+                <span class="def-name">AI Anomaly Detection Model</span>
+                <span class="def-state">ACTIVE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /left-col -->
+
+      <!-- Right column: Event log -->
+      <div class="right-col">
+        <div class="panel">
+          <div class="panel-hdr">
+            <div class="panel-title">SECURITY EVENT LOG</div>
+            <div class="panel-chip chip-orange" id="log-badge">AI + RULES</div>
+          </div>
+          <div class="event-log" id="event-log">
+            <div class="event-item">
+              <span class="event-icon">↻</span>
+              <span class="event-time">--:--:--</span>
+              <span class="event-message">Waiting for events...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content-grid -->
+
+    <!-- Footer defense strip -->
+    <div class="footer-strip">
+      <div class="footer-label">Active Defenses</div>
+      <div class="footer-checks">
+        <div class="f-check"><div class="f-led"></div><span class="f-check-name">HMAC-SHA256</span><span class="f-check-state">ENFORCED</span></div>
+        <div class="f-check"><div class="f-led"></div><span class="f-check-name">TIMESTAMP</span><span class="f-check-state">ENFORCED</span></div>
+        <div class="f-check"><div class="f-led"></div><span class="f-check-name">SEQ COUNTER</span><span class="f-check-state">ENFORCED</span></div>
+        <div class="f-check"><div class="f-led"></div><span class="f-check-name">mTLS/TLS</span><span class="f-check-state">ENFORCED</span></div>
+        <div class="f-check"><div class="f-led orange"></div><span class="f-check-name">AI ANOMALY</span><span class="f-check-state orange">ENFORCED</span></div>
+      </div>
+      <div class="footer-session">SESSION: <span id="session-id">--</span></div>
+    </div>
+
+  </div><!-- /wrap -->
+
+  <script>
+    // Boot
+    setTimeout(() => {
+      const b = document.getElementById('boot');
+      b.classList.add('fade-out');
+      setTimeout(() => b.remove(), 700);
+    }, 2600);
+
+    document.getElementById('session-id').textContent =
+      'HSA-' + Math.random().toString(36).substring(2,8).toUpperCase();
+
+    const startTime = Date.now();
+    setInterval(() => {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('stat-uptime').textContent =
+        String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+    }, 1000);
+
+    // State
+    const state = {
+      valid:0, rejected:0, ai_anomalies:0, total:0,
+      zones: {
+        main_building:{ online:false, lastSeen:null },
+        pool_spa:     { online:false, lastSeen:null },
+        kitchen:      { online:false, lastSeen:null },
+      }
+    };
+
+    // WebSocket
+    let ws=null, reconnectAttempts=0;
+    const MAX_RECONNECT=10;
+
+    function connectWebSocket() {
+      addEvent('valid','Connecting to AI-enhanced monitoring system...');
+      try { ws=new WebSocket('ws://localhost:8765'); }
+      catch(e){ addEvent('attack','WebSocket error: '+e.message); return; }
+
+      ws.onopen = () => {
+        reconnectAttempts=0;
+        addEvent('valid','Connected to AI-enhanced security monitoring');
+        document.querySelector('.live-dot').style.background='var(--green)';
+      };
+      ws.onmessage = (ev) => {
+        try { handleMessage(JSON.parse(ev.data)); }
+        catch(e){ console.error('Parse error:',e); }
+      };
+      ws.onclose = () => {
+        document.querySelector('.live-dot').style.background='var(--red)';
+        if(reconnectAttempts<MAX_RECONNECT){
+          reconnectAttempts++;
+          addEvent('attack','Disconnected. Retry '+reconnectAttempts+'/'+MAX_RECONNECT+'...');
+          setTimeout(connectWebSocket,2000);
+        } else {
+          addEvent('attack','Connection failed. Is subscriber_dashboard_ai.py running?');
+        }
+      };
+      ws.onerror=()=>{};
+    }
+
+    function handleMessage(msg) {
+      switch(msg.type) {
+        case 'valid_message':    handleValidMessage(msg.data); break;
+        case 'attack':
+        case 'rejected_message': handleAttack(msg.data); break;
+        case 'ai_anomaly':       handleAiAnomaly(msg.data); break;
+        case 'stats_update':     updateStats(msg.data); break;
+      }
+    }
+
+    function handleValidMessage(data) {
+      state.valid++; state.total++;
+      let zone='main_building';
+      if(data.zone) zone=data.zone;
+      else if(data.topic){
+        if(data.topic.includes('pool'))    zone='pool_spa';
+        else if(data.topic.includes('kitchen')) zone='kitchen';
+      }
+      state.zones[zone].online=true;
+      state.zones[zone].lastSeen=new Date();
+      updateZoneCard(zone,data,false);
+      updateStatsDisplay();
+      addEvent('valid', getZoneName(zone)+': pressure='+(data.pressure_psi||'--')+' PSI, flow='+(data.flow_rate_lpm||'--')+' LPM');
+    }
+
+    function handleAttack(data) {
+      state.rejected++; state.total++;
+      showAttackAlert(data);
+      triggerThreat('red');
+      const card=document.getElementById('card-main_building');
+      if(card){ card.classList.add('attack-active'); setTimeout(()=>card.classList.remove('attack-active'),3000); }
+      updateStatsDisplay();
+      addEvent('attack','BLOCKED: '+(data.attack_type||data.reasons?.join(', ')||'Unknown')+' from '+(data.source||'unknown'));
+    }
+
+    function handleAiAnomaly(data) {
+      state.ai_anomalies++; state.total++;
+      showAiAlert(data);
+      triggerThreat('orange');
+      let zone=data.zone||'main_building';
+      state.zones[zone].online=true;
+      state.zones[zone].lastSeen=new Date();
+      updateZoneCard(zone,data,true);
+      const card=document.getElementById('card-'+zone);
+      if(card){ card.classList.add('ai-alert-active'); setTimeout(()=>card.classList.remove('ai-alert-active'),4000); }
+      updateStatsDisplay();
+      addEvent('ai-anomaly','AI ANOMALY: '+(data.anomaly_description||'Unusual pattern')+' from '+(data.device_id||'unknown')+' (score: '+(data.ai_score||'--')+')');
+    }
+
+    function triggerThreat(color) {
+      const flash=document.getElementById('threat-flash');
+      const pill =document.getElementById('threat-indicator');
+      const label=document.getElementById('threat-label');
+      const badge=document.getElementById('sec-badge');
+
+      flash.className=''; void flash.offsetWidth;
+      flash.className=color;
+
+      if(color==='red'){
+        pill.className='threat-pill critical'; label.textContent='THREAT LEVEL: HIGH';
+        badge.className='panel-chip chip-red'; badge.textContent='ALERT';
+      } else {
+        pill.className='threat-pill ai-warn'; label.textContent='THREAT LEVEL: MODERATE';
+        badge.className='panel-chip chip-orange'; badge.textContent='AI WARN';
+      }
+
+      setTimeout(()=>{
+        pill.className='threat-pill normal'; label.textContent='THREAT LEVEL: LOW';
+        badge.className='panel-chip chip-green'; badge.textContent='SECURE';
+      }, color==='red'?5000:6000);
+    }
+
+    function showAttackAlert(data) {
+      document.getElementById('ai-alert').classList.remove('visible');
+      const alertBox=document.getElementById('attack-alert');
+      const header  =document.getElementById('security-header');
+      const status  =document.getElementById('security-status');
+
+      document.getElementById('attack-type').textContent  =data.attack_type||data.reasons?.join(', ')||'Security Violation';
+      document.getElementById('attack-source').textContent=data.source||data.device_id||'unknown';
+      document.getElementById('attack-target').textContent='Water System';
+
+      alertBox.classList.add('visible');
+      header.className='panel-title security-alert';
+      header.textContent='⚠ SECURITY ALERT';
+      status.textContent='Attack detected and blocked by rule-based defense!';
+      status.className='threat';
+
+      setTimeout(()=>{
+        alertBox.classList.remove('visible');
+        header.className='panel-title security-normal'; header.textContent='SECURITY STATUS';
+        status.textContent='All systems operating normally. Rules + AI monitoring active.';
+        status.className='ok';
+      },5000);
+    }
+
+    function showAiAlert(data) {
+      document.getElementById('attack-alert').classList.remove('visible');
+      const alertBox=document.getElementById('ai-alert');
+      const header  =document.getElementById('security-header');
+      const status  =document.getElementById('security-status');
+
+      document.getElementById('ai-source').textContent=data.device_id||'unknown';
+      document.getElementById('ai-detail').textContent=data.anomaly_description||'Unusual sensor pattern';
+      document.getElementById('ai-score').textContent =data.ai_score||'--';
+
+      alertBox.classList.add('visible');
+      header.className='panel-title security-ai-alert';
+      header.textContent='🧠 AI ANOMALY WARNING';
+      status.textContent='AI model flagged unusual sensor pattern — investigation recommended.';
+      status.className='ai-warn';
+
+      setTimeout(()=>{
+        alertBox.classList.remove('visible');
+        header.className='panel-title security-normal'; header.textContent='SECURITY STATUS';
+        status.textContent='All systems operating normally. Rules + AI monitoring active.';
+        status.className='ok';
+      },6000);
+    }
+
+    function updateZoneCard(zone, data, isAiWarn) {
+      const dot=document.getElementById('status-'+zone);
+      const txt=document.getElementById('status-text-'+zone);
+      if(dot) dot.classList.add('online');
+      if(txt) txt.textContent='ONLINE';
+
+      const pressure=data.pressure_psi   ||0;
+      const flow    =data.flow_rate_lpm  ||0;
+      const valve   =data.valve_position ||0;
+
+      const gauge=document.getElementById('gauge-'+zone);
+      if(gauge){
+        const offset=238.76*(1-Math.min(pressure/80,1));
+        gauge.style.strokeDashoffset=offset;
+        gauge.classList.toggle('danger',    !isAiWarn && pressure>65);
+        gauge.classList.toggle('ai-warning', isAiWarn);
+      }
+
+      const gVal=document.getElementById('pressure-'+zone);
+      if(gVal){
+        gVal.textContent=pressure.toFixed(1);
+        gVal.classList.toggle('danger',     !isAiWarn && pressure>65);
+        gVal.classList.toggle('ai-warning',  isAiWarn);
+      }
+
+      const bar=document.getElementById('pressure-bar-'+zone);
+      if(bar) bar.style.width=Math.min((pressure/80)*100,100)+'%';
+
+      animateMetric('flow-' +zone, flow.toFixed(1) +' LPM', isAiWarn);
+      animateMetric('valve-'+zone, valve.toFixed(1)+'%',    isAiWarn);
+
+      const card=document.getElementById('card-'+zone);
+      if(card){ card.classList.remove('updating'); void card.offsetWidth; card.classList.add('updating'); }
+    }
+
+    function animateMetric(id, value, isAiWarn) {
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.textContent=value;
+      if(isAiWarn){
+        el.classList.remove('updating','ai-warning'); void el.offsetWidth;
+        el.classList.add('ai-warning');
+        setTimeout(()=>el.classList.remove('ai-warning'),2000);
+      } else {
+        el.classList.remove('updating','ai-warning'); void el.offsetWidth;
+        el.classList.add('updating');
+        setTimeout(()=>el.classList.remove('updating'),500);
+      }
+    }
+
+    function updateStatsDisplay() {
+      punchCounter('stat-valid',    state.valid);
+      punchCounter('stat-rejected', state.rejected);
+      punchCounter('stat-ai',       state.ai_anomalies);
+      punchCounter('stat-total',    state.total);
+      document.getElementById('last-check').textContent=formatTime(new Date());
+    }
+
+    function punchCounter(id, val) {
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.textContent=val;
+      el.style.transform='scale(1.18)';
+      setTimeout(()=>el.style.transform='scale(1)',200);
+    }
+
+    function updateStats(data) {
+      state.valid       =data.valid        ||0;
+      state.rejected    =data.rejected     ||0;
+      state.ai_anomalies=data.ai_anomalies ||0;
+      state.total       =data.total        ||0;
+      updateStatsDisplay();
+    }
+
+    function addEvent(type, message) {
+      const log =document.getElementById('event-log');
+      const icon= type==='attack'?'▲': type==='ai-anomaly'?'⬡':'●';
+      const item=document.createElement('div');
+      item.className='event-item '+type;
+      item.innerHTML=
+        '<span class="event-icon">'+icon+'</span>'+
+        '<span class="event-time">'+formatTime(new Date())+'</span>'+
+        '<span class="event-message">'+message+'</span>';
+      if(log.firstChild) log.insertBefore(item,log.firstChild);
+      else log.appendChild(item);
+      while(log.children.length>60) log.removeChild(log.lastChild);
+    }
+
+    function getZoneName(z){ return{main_building:'Main Building',pool_spa:'Pool & Spa',kitchen:'Kitchen & Laundry'}[z]||z; }
+    function formatTime(d){ return d.toLocaleTimeString('en-US',{hour12:false}); }
+    function updateClock(){ document.getElementById('current-time').textContent=formatTime(new Date()); }
+
+    function init() {
+      updateClock();
+      setInterval(updateClock,1000);
+      connectWebSocket();
+      setTimeout(()=>{
+        const log=document.getElementById('event-log');
+        if(log.children.length===1){
+          const m=log.firstChild.querySelector('.event-message');
+          if(m&&m.textContent==='Waiting for events...') log.innerHTML='';
+        }
+      },3000);
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Conda virtual environment setup:
+# 1) conda create -n hydroficient python=3.11 -y
+# 2) conda activate hydroficient
+# 3) pip install -r requirements.txt
+# 4) (optional) verify: python -V && pip list
+
+paho-mqtt
+websockets
+numpy
+joblib
+cryptography

@@ -1,0 +1,1959 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HYDRO SENTINEL — Security Operations Center</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* ═══════════════════════════════════════════════
+       ROOT TOKENS
+    ═══════════════════════════════════════════════ */
+      :root {
+        --bg-base: #030b13;
+        --bg-panel: #060f1c;
+        --bg-card: #08172a;
+        --bg-surface: #0c1e33;
+
+        --green: #00ff88;
+        --green-dim: rgba(0, 255, 136, 0.08);
+        --green-glow: rgba(0, 255, 136, 0.35);
+        --green-mid: rgba(0, 255, 136, 0.18);
+
+        --cyan: #00ccff;
+        --cyan-dim: rgba(0, 204, 255, 0.07);
+        --cyan-glow: rgba(0, 204, 255, 0.3);
+
+        --red: #ff2b4a;
+        --red-dim: rgba(255, 43, 74, 0.1);
+        --red-glow: rgba(255, 43, 74, 0.45);
+        --red-mid: rgba(255, 43, 74, 0.22);
+
+        --amber: #ffb800;
+        --amber-dim: rgba(255, 184, 0, 0.08);
+
+        --text-hi: #d0e8f8;
+        --text-mid: #5a84a2;
+        --text-lo: #2d4a5e;
+
+        --border: rgba(0, 180, 255, 0.1);
+        --border-lit: rgba(0, 255, 136, 0.25);
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 14px;
+      }
+
+      body {
+        font-family: "Barlow Condensed", sans-serif;
+        background: var(--bg-base);
+        color: var(--text-hi);
+        min-height: 100vh;
+        overflow-x: hidden;
+        /* dot-grid atmosphere */
+        background-image: radial-gradient(
+          circle,
+          rgba(0, 180, 255, 0.07) 1px,
+          transparent 1px
+        );
+        background-size: 28px 28px;
+      }
+
+      /* CRT scanline overlay — very subtle */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 3px,
+          rgba(0, 0, 0, 0.04) 3px,
+          rgba(0, 0, 0, 0.04) 4px
+        );
+        pointer-events: none;
+        z-index: 9999;
+      }
+
+      /* ═══════════════════════════════════════════════
+       BOOT OVERLAY
+    ═══════════════════════════════════════════════ */
+      #boot {
+        position: fixed;
+        inset: 0;
+        background: var(--bg-base);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.4rem;
+        transition: opacity 0.6s ease;
+      }
+      #boot.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .boot-logo {
+        font-family: "Orbitron", monospace;
+        font-size: 2.4rem;
+        font-weight: 900;
+        letter-spacing: 0.35em;
+        color: var(--cyan);
+        text-shadow:
+          0 0 20px var(--cyan-glow),
+          0 0 60px rgba(0, 204, 255, 0.15);
+      }
+
+      .boot-sub {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        color: var(--text-mid);
+      }
+
+      .boot-lines {
+        width: 340px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+
+      .boot-line {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.65rem;
+        color: var(--green);
+        letter-spacing: 0.08em;
+        opacity: 0;
+        animation: bootLine 0.25s ease forwards;
+      }
+      .boot-line:nth-child(1) {
+        animation-delay: 0.15s;
+      }
+      .boot-line:nth-child(2) {
+        animation-delay: 0.4s;
+      }
+      .boot-line:nth-child(3) {
+        animation-delay: 0.65s;
+      }
+      .boot-line:nth-child(4) {
+        animation-delay: 0.9s;
+      }
+      .boot-line:nth-child(5) {
+        animation-delay: 1.15s;
+      }
+
+      @keyframes bootLine {
+        from {
+          opacity: 0;
+          transform: translateX(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .boot-bar-wrap {
+        width: 340px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .boot-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--cyan), var(--green));
+        box-shadow: 0 0 8px var(--cyan-glow);
+        animation: bootFill 1.6s ease forwards;
+        animation-delay: 0.15s;
+      }
+      @keyframes bootFill {
+        from {
+          width: 0%;
+        }
+        to {
+          width: 100%;
+        }
+      }
+
+      /* ═══════════════════════════════════════════════
+       GLOBAL THREAT FLASH
+    ═══════════════════════════════════════════════ */
+      #threat-flash {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 9990;
+        box-shadow: inset 0 0 0 transparent;
+        transition: box-shadow 0.2s;
+      }
+      #threat-flash.active {
+        animation: threatFlash 0.5s ease-out;
+      }
+      @keyframes threatFlash {
+        0% {
+          box-shadow: inset 0 0 60px var(--red-glow);
+        }
+        100% {
+          box-shadow: inset 0 0 0 transparent;
+        }
+      }
+
+      /* ═══════════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════════ */
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 200;
+        height: 60px;
+        background: rgba(3, 11, 19, 0.94);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1.75rem;
+        /* animated bottom line */
+        position: relative;
+      }
+      header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          var(--cyan) 30%,
+          var(--green) 70%,
+          transparent 100%
+        );
+        opacity: 0.4;
+        animation: headerShimmer 5s ease-in-out infinite;
+      }
+      @keyframes headerShimmer {
+        0%,
+        100% {
+          opacity: 0.2;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+      }
+      .brand-shield {
+        width: 36px;
+        height: 36px;
+        border: 1.5px solid var(--cyan);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        color: var(--cyan);
+        position: relative;
+        overflow: hidden;
+      }
+      .brand-shield::before {
+        content: "";
+        position: absolute;
+        top: -120%;
+        left: 0;
+        right: 0;
+        height: 120%;
+        background: linear-gradient(
+          transparent,
+          rgba(0, 204, 255, 0.2),
+          transparent
+        );
+        animation: shieldSweep 2.5s ease-in-out infinite;
+      }
+      @keyframes shieldSweep {
+        0% {
+          top: -120%;
+        }
+        100% {
+          top: 120%;
+        }
+      }
+
+      .brand-text-wrap {
+        display: flex;
+        flex-direction: column;
+      }
+      .brand-name {
+        font-family: "Orbitron", monospace;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        color: var(--cyan);
+      }
+      .brand-tagline {
+        font-size: 0.62rem;
+        letter-spacing: 0.14em;
+        color: var(--text-mid);
+        text-transform: uppercase;
+      }
+
+      /* Threat level pill */
+      .threat-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.3rem 0.85rem;
+        border: 1px solid;
+        border-radius: 2px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        transition: all 0.3s ease;
+      }
+      .threat-pill.normal {
+        border-color: rgba(0, 255, 136, 0.35);
+        background: var(--green-dim);
+        color: var(--green);
+      }
+      .threat-pill.critical {
+        border-color: rgba(255, 43, 74, 0.5);
+        background: var(--red-dim);
+        color: var(--red);
+        animation: alertPulseBox 0.6s ease infinite;
+      }
+      @keyframes alertPulseBox {
+        0%,
+        100% {
+          box-shadow: 0 0 0 transparent;
+        }
+        50% {
+          box-shadow: 0 0 12px var(--red-glow);
+        }
+      }
+
+      .threat-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .threat-pill.normal .threat-dot {
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .threat-pill.critical .threat-dot {
+        animation: fastPulse 0.4s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.35;
+          transform: scale(1.4);
+        }
+      }
+      @keyframes fastPulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.15;
+        }
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+      }
+      .live-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        color: var(--green);
+      }
+      .live-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .sys-clock {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 1.05rem;
+        color: var(--cyan);
+        letter-spacing: 0.1em;
+        min-width: 80px;
+      }
+
+      /* ═══════════════════════════════════════════════
+       OPERATOR STRIP
+    ═══════════════════════════════════════════════ */
+      .op-strip {
+        background: rgba(0, 204, 255, 0.02);
+        border-bottom: 1px solid var(--border);
+        padding: 0.45rem 1.75rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        font-size: 0.68rem;
+        color: var(--text-mid);
+        letter-spacing: 0.07em;
+        flex-wrap: wrap;
+      }
+      .op-strip .mono {
+        font-family: "Share Tech Mono", monospace;
+        color: var(--cyan);
+        font-size: 0.65rem;
+      }
+      .op-sep {
+        width: 1px;
+        height: 12px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+
+      /* ═══════════════════════════════════════════════
+       LAYOUT WRAPPER
+    ═══════════════════════════════════════════════ */
+      .wrap {
+        padding: 1.25rem 1.75rem 2rem;
+        max-width: 1720px;
+        margin: 0 auto;
+      }
+
+      /* ═══════════════════════════════════════════════
+       STAT TILES
+    ═══════════════════════════════════════════════ */
+      .stat-tiles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.9rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .tile {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 0.9rem 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        position: relative;
+        overflow: hidden;
+        animation: tileReveal 0.5s ease both;
+      }
+      .tile:nth-child(1) {
+        animation-delay: 0.1s;
+      }
+      .tile:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .tile:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .tile:nth-child(4) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes tileReveal {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* left accent bar */
+      .tile::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+      }
+      .tile.green::before {
+        background: var(--green);
+      }
+      .tile.red::before {
+        background: var(--red);
+      }
+      .tile.cyan::before {
+        background: var(--cyan);
+      }
+      .tile.amber::before {
+        background: var(--amber);
+      }
+
+      .tile-icon {
+        font-size: 1.5rem;
+        opacity: 0.6;
+      }
+
+      .tile-body {
+        flex: 1;
+      }
+      .tile-val {
+        font-family: "Orbitron", monospace;
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1;
+        transition: transform 0.2s ease;
+      }
+      .tile.green .tile-val {
+        color: var(--green);
+      }
+      .tile.red .tile-val {
+        color: var(--red);
+      }
+      .tile.cyan .tile-val {
+        color: var(--cyan);
+      }
+      .tile.amber .tile-val {
+        color: var(--amber);
+      }
+
+      .tile-label {
+        font-size: 0.63rem;
+        letter-spacing: 0.14em;
+        color: var(--text-mid);
+        text-transform: uppercase;
+        margin-top: 0.2rem;
+      }
+
+      /* ═══════════════════════════════════════════════
+       MAIN CONTENT GRID
+    ═══════════════════════════════════════════════ */
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 1.25rem;
+        align-items: start;
+      }
+
+      .left-col {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+      .right-col {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+
+      /* ═══════════════════════════════════════════════
+       PANEL
+    ═══════════════════════════════════════════════ */
+      .panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .panel-hdr {
+        padding: 0.55rem 1rem;
+        background: rgba(0, 180, 255, 0.04);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .panel-title {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.16em;
+        color: var(--cyan);
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .panel-title::before {
+        content: "//";
+        color: var(--text-lo);
+        font-size: 0.6rem;
+      }
+
+      .panel-chip {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.6rem;
+        padding: 0.18rem 0.55rem;
+        border-radius: 2px;
+        letter-spacing: 0.1em;
+        border: 1px solid;
+      }
+      .chip-green {
+        color: var(--green);
+        border-color: rgba(0, 255, 136, 0.3);
+        background: var(--green-dim);
+      }
+      .chip-red {
+        color: var(--red);
+        border-color: rgba(255, 43, 74, 0.3);
+        background: var(--red-dim);
+      }
+      .chip-amber {
+        color: var(--amber);
+        border-color: rgba(255, 184, 0, 0.3);
+        background: var(--amber-dim);
+      }
+
+      /* ═══════════════════════════════════════════════
+       ZONE CARDS GRID
+    ═══════════════════════════════════════════════ */
+      .zones-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      .sensor-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 1.1rem;
+        position: relative;
+        overflow: hidden;
+        transition:
+          border-color 0.3s,
+          box-shadow 0.3s;
+        animation: cardReveal 0.6s ease both;
+      }
+      .sensor-card:nth-child(1) {
+        animation-delay: 0.15s;
+      }
+      .sensor-card:nth-child(2) {
+        animation-delay: 0.3s;
+      }
+      .sensor-card:nth-child(3) {
+        animation-delay: 0.45s;
+      }
+      @keyframes cardReveal {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* data-update shimmer */
+      .sensor-card::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -200%;
+        width: 200%;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--cyan),
+          transparent
+        );
+      }
+      .sensor-card.updating::after {
+        animation: scanTop 0.5s ease-out forwards;
+      }
+      @keyframes scanTop {
+        from {
+          left: -200%;
+        }
+        to {
+          left: 200%;
+        }
+      }
+
+      .sensor-card.attack-active {
+        border-color: var(--red) !important;
+        box-shadow:
+          0 0 20px var(--red-glow),
+          inset 0 0 30px rgba(255, 43, 74, 0.05);
+        animation: threatShake 0.4s ease-in-out;
+      }
+      @keyframes threatShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        20% {
+          transform: translateX(-5px);
+        }
+        60% {
+          transform: translateX(5px);
+        }
+      }
+
+      .zone-hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.9rem;
+      }
+      .zone-icon {
+        font-size: 1.3rem;
+        margin-bottom: 0.2rem;
+        opacity: 0.75;
+      }
+      .zone-name {
+        font-family: "Orbitron", monospace;
+        font-size: 0.6rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        color: var(--cyan);
+      }
+      .zone-sub {
+        font-size: 0.62rem;
+        color: var(--text-mid);
+        letter-spacing: 0.04em;
+        margin-top: 0.15rem;
+      }
+
+      .zone-status {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.6rem;
+        color: var(--text-mid);
+        letter-spacing: 0.08em;
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-lo);
+        transition:
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .status-dot.online {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green-glow);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      /* === SVG Circular Gauge === */
+      .gauge-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        margin: 0.6rem 0 0.8rem;
+      }
+      .gauge-svg {
+        width: 88px;
+        height: 88px;
+      }
+      .g-track {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.05);
+        stroke-width: 6;
+      }
+      .g-fill {
+        fill: none;
+        stroke: var(--cyan);
+        stroke-width: 6;
+        stroke-linecap: round;
+        /* r=38 → circumference = 2π×38 ≈ 238.76 */
+        stroke-dasharray: 238.76;
+        stroke-dashoffset: 238.76;
+        transform-origin: 44px 44px;
+        transform: rotate(-90deg);
+        transition:
+          stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+          stroke 0.3s;
+        filter: drop-shadow(0 0 3px rgba(0, 204, 255, 0.5));
+      }
+      .g-fill.danger {
+        stroke: var(--red);
+        filter: drop-shadow(0 0 4px var(--red-glow));
+      }
+
+      .gauge-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .gauge-val {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--cyan);
+        line-height: 1;
+        transition: color 0.3s;
+      }
+      .gauge-val.danger {
+        color: var(--red);
+      }
+      .gauge-unit {
+        font-size: 0.55rem;
+        letter-spacing: 0.1em;
+        color: var(--text-mid);
+        margin-top: 0.15rem;
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.38rem 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .metric-label {
+        font-size: 0.66rem;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-mid);
+      }
+      .metric-value {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.88rem;
+        color: var(--cyan);
+        transition:
+          color 0.3s,
+          text-shadow 0.3s;
+      }
+      .metric-value.updating {
+        color: var(--green);
+        text-shadow: 0 0 8px var(--green-glow);
+      }
+
+      /* hidden pressure bars — kept for JS compat */
+      .pressure-fill {
+        display: none;
+      }
+
+      /* ═══════════════════════════════════════════════
+       SECURITY STATUS PANEL
+    ═══════════════════════════════════════════════ */
+      .sec-body {
+        padding: 1.1rem;
+      }
+
+      .sec-state-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.14em;
+        color: var(--text-mid);
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
+      }
+
+      #security-status {
+        font-size: 0.82rem;
+        line-height: 1.55;
+        color: var(--text-hi);
+        transition: color 0.3s;
+      }
+      #security-status.ok {
+        color: var(--green);
+      }
+      #security-status.threat {
+        color: var(--red);
+      }
+
+      .last-check-row {
+        margin-top: 0.6rem;
+        font-size: 0.68rem;
+        color: var(--text-mid);
+      }
+      #last-check {
+        font-family: "Share Tech Mono", monospace;
+        color: var(--cyan);
+      }
+
+      /* Attack alert box */
+      .attack-alert {
+        margin-top: 1rem;
+        padding: 0.8rem;
+        background: var(--red-dim);
+        border: 1px solid rgba(255, 43, 74, 0.35);
+        border-radius: 3px;
+        display: none;
+        animation: slideIn 0.3s ease;
+      }
+      .attack-alert.visible {
+        display: block;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .atk-hdr {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-family: "Orbitron", monospace;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        color: var(--red);
+        margin-bottom: 0.6rem;
+        animation: blinkAnim 0.7s ease infinite;
+      }
+      @keyframes blinkAnim {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
+      }
+
+      .atk-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.22rem;
+        font-size: 0.75rem;
+        color: var(--text-mid);
+      }
+      .atk-details strong {
+        color: var(--text-hi);
+      }
+
+      .atk-blocked {
+        margin-top: 0.65rem;
+        padding: 0.35rem;
+        background: var(--green-dim);
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        text-align: center;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.63rem;
+        letter-spacing: 0.15em;
+        color: var(--green);
+      }
+
+      /* Defense checks */
+      .def-checks {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        margin-top: 1rem;
+      }
+      .def-row {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.45rem 0.7rem;
+        background: var(--green-dim);
+        border: 1px solid rgba(0, 255, 136, 0.1);
+        border-radius: 2px;
+      }
+      .def-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--green);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.5rem;
+        color: #000;
+        font-weight: 900;
+        flex-shrink: 0;
+      }
+      .def-name {
+        flex: 1;
+        font-size: 0.72rem;
+        color: var(--text-mid);
+        letter-spacing: 0.04em;
+      }
+      .def-state {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.6rem;
+        color: var(--green);
+        letter-spacing: 0.12em;
+      }
+
+      /* ═══════════════════════════════════════════════
+       EVENT LOG (right column)
+    ═══════════════════════════════════════════════ */
+      .event-log {
+        height: 500px;
+        overflow-y: auto;
+        padding: 0.5rem 0.6rem;
+        font-family: "Share Tech Mono", monospace;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 180, 255, 0.25) transparent;
+      }
+      .event-log::-webkit-scrollbar {
+        width: 4px;
+      }
+      .event-log::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .event-log::-webkit-scrollbar-thumb {
+        background: rgba(0, 180, 255, 0.25);
+        border-radius: 2px;
+      }
+
+      .event-item {
+        display: grid;
+        grid-template-columns: 14px 58px 1fr;
+        gap: 0.45rem;
+        align-items: baseline;
+        padding: 0.32rem 0.4rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        font-size: 0.67rem;
+        animation: logSlide 0.25s ease;
+        line-height: 1.5;
+      }
+      @keyframes logSlide {
+        from {
+          opacity: 0;
+          transform: translateX(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .event-icon {
+        color: var(--text-lo);
+        font-size: 0.55rem;
+      }
+      .event-time {
+        color: var(--text-mid);
+      }
+      .event-message {
+        color: var(--text-hi);
+        word-break: break-word;
+      }
+
+      .event-item.attack .event-icon {
+        color: var(--red);
+      }
+      .event-item.attack .event-message {
+        color: var(--red);
+      }
+      .event-item.anomaly .event-icon {
+        color: var(--amber);
+      }
+      .event-item.anomaly .event-message {
+        color: var(--amber);
+      }
+      .event-item.valid .event-icon {
+        color: var(--green);
+      }
+      .event-item.valid .event-message {
+        color: var(--green);
+      }
+
+      /* ═══════════════════════════════════════════════
+       DEFENSE FOOTER STRIP
+    ═══════════════════════════════════════════════ */
+      .footer-strip {
+        margin-top: 1.25rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 0.85rem 1.4rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        animation: tileReveal 0.5s ease 0.5s both;
+      }
+
+      .footer-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.16em;
+        color: var(--text-mid);
+        text-transform: uppercase;
+      }
+
+      .footer-checks {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+      }
+      .f-check {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .f-led {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green-glow);
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .f-check-name {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.66rem;
+        color: var(--text-hi);
+        letter-spacing: 0.07em;
+      }
+      .f-check-state {
+        font-size: 0.6rem;
+        color: var(--green);
+        letter-spacing: 0.1em;
+      }
+
+      .footer-session {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 0.62rem;
+        color: var(--text-mid);
+      }
+
+      /* ═══════════════════════════════════════════════
+       SECURITY HEADER — state classes
+    ═══════════════════════════════════════════════ */
+      .security-normal {
+        color: var(--green) !important;
+      }
+      .security-alert {
+        color: var(--red) !important;
+        animation: blinkAnim 0.7s ease infinite;
+      }
+      .security-warning {
+        color: var(--amber) !important;
+      }
+
+      /* ═══════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════ */
+      @media (max-width: 1300px) {
+        .content-grid {
+          grid-template-columns: 1fr;
+        }
+        .event-log {
+          height: 280px;
+        }
+      }
+      @media (max-width: 1024px) {
+        .zones-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .stat-tiles {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 640px) {
+        .zones-grid {
+          grid-template-columns: 1fr;
+        }
+        .op-strip {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ════════════════ BOOT SCREEN ════════════════ -->
+    <div id="boot">
+      <div class="boot-logo">HYDRO SENTINEL</div>
+      <div class="boot-sub">SECURITY OPERATIONS CENTER — INITIALIZING</div>
+      <div class="boot-bar-wrap"><div class="boot-bar-fill"></div></div>
+      <div class="boot-lines">
+        <div class="boot-line">[ OK ] Loading mTLS certificate chain...</div>
+        <div class="boot-line">[ OK ] Binding WebSocket listener on :8765</div>
+        <div class="boot-line">[ OK ] HMAC-SHA256 engine ready</div>
+        <div class="boot-line">[ OK ] Sequence counter initialized</div>
+        <div class="boot-line">
+          [ OK ] Pipeline secure — entering monitoring mode
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ THREAT FLASH OVERLAY ════════════════ -->
+    <div id="threat-flash"></div>
+
+    <!-- ════════════════ HEADER ════════════════ -->
+    <header>
+      <div class="brand">
+        <div class="brand-shield">🛡</div>
+        <div class="brand-text-wrap">
+          <div class="brand-name">HYDRO SENTINEL</div>
+          <div class="brand-tagline">Water Security Operations Center</div>
+        </div>
+      </div>
+
+      <div class="threat-pill normal" id="threat-indicator">
+        <div class="threat-dot"></div>
+        <span id="threat-label">THREAT LEVEL: LOW</span>
+      </div>
+
+      <div class="header-right">
+        <div class="live-pill">
+          <div class="live-dot"></div>
+          LIVE FEED
+        </div>
+        <div class="sys-clock" id="current-time">--:--:--</div>
+      </div>
+    </header>
+
+    <!-- ════════════════ OPERATOR STRIP ════════════════ -->
+    <div class="op-strip">
+      <span>OPERATOR:</span>
+      <span class="mono">TANIA AMANDA FREDRICK</span>
+      <div class="op-sep"></div>
+      <span>ROLE: IoT SECURITY ENGINEER</span>
+      <div class="op-sep"></div>
+      <span>SYSTEM: GRAND MARINA HOTEL — WATER MONITORING</span>
+      <div class="op-sep"></div>
+      <span>BROKER: <span class="mono">localhost:8883 (mTLS)</span></span>
+      <div class="op-sep"></div>
+      <span>PROTOCOL: <span class="mono">MQTT + HMAC-SHA256</span></span>
+    </div>
+
+    <!-- ════════════════ MAIN WRAP ════════════════ -->
+    <div class="wrap">
+      <!-- STAT TILES -->
+      <div class="stat-tiles">
+        <div class="tile green">
+          <div class="tile-icon">✅</div>
+          <div class="tile-body">
+            <div class="tile-val" id="stat-valid">0</div>
+            <div class="tile-label">Valid Messages</div>
+          </div>
+        </div>
+        <div class="tile red">
+          <div class="tile-icon">🚫</div>
+          <div class="tile-body">
+            <div class="tile-val" id="stat-rejected">0</div>
+            <div class="tile-label">Attacks Blocked</div>
+          </div>
+        </div>
+        <div class="tile cyan">
+          <div class="tile-icon">📡</div>
+          <div class="tile-body">
+            <div class="tile-val" id="stat-total">0</div>
+            <div class="tile-label">Total Processed</div>
+          </div>
+        </div>
+        <div class="tile amber">
+          <div class="tile-icon">⏱</div>
+          <div class="tile-body">
+            <div class="tile-val" id="stat-uptime">00:00</div>
+            <div class="tile-label">Session Uptime</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENT GRID -->
+      <div class="content-grid">
+        <!-- ═══ LEFT COLUMN ═══ -->
+        <div class="left-col">
+          <!-- Zone Sensor Cards -->
+          <div class="panel">
+            <div class="panel-hdr">
+              <div class="panel-title">MONITORED ZONES — LIVE SENSOR FEED</div>
+              <div class="panel-chip chip-green">3 ZONES</div>
+            </div>
+            <div class="zones-grid">
+              <!-- ── Main Building ── -->
+              <div class="sensor-card" id="card-main_building">
+                <div class="zone-hdr">
+                  <div>
+                    <div class="zone-icon">🏛</div>
+                    <div class="zone-name">MAIN BUILDING</div>
+                    <div class="zone-sub">Primary Water Supply</div>
+                  </div>
+                  <div class="zone-status">
+                    <div class="status-dot" id="status-main_building"></div>
+                    <span id="status-text-main_building">OFFLINE</span>
+                  </div>
+                </div>
+                <div class="gauge-wrap">
+                  <svg class="gauge-svg" viewBox="0 0 88 88">
+                    <circle class="g-track" cx="44" cy="44" r="38" />
+                    <circle
+                      class="g-fill"
+                      id="gauge-main_building"
+                      cx="44"
+                      cy="44"
+                      r="38"
+                    />
+                  </svg>
+                  <div class="gauge-center">
+                    <span class="gauge-val" id="pressure-main_building"
+                      >--</span
+                    >
+                    <span class="gauge-unit">PSI</span>
+                  </div>
+                </div>
+                <!-- hidden bar for JS compat -->
+                <div style="display: none">
+                  <div
+                    class="pressure-fill"
+                    id="pressure-bar-main_building"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Flow Rate</span>
+                  <span class="metric-value" id="flow-main_building"
+                    >-- LPM</span
+                  >
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Gate Position</span>
+                  <span class="metric-value" id="valve-main_building">--%</span>
+                </div>
+              </div>
+
+              <!-- ── Pool & Spa ── -->
+              <div class="sensor-card" id="card-pool_spa">
+                <div class="zone-hdr">
+                  <div>
+                    <div class="zone-icon">🏊</div>
+                    <div class="zone-name">POOL &amp; SPA</div>
+                    <div class="zone-sub">Recreational Facilities</div>
+                  </div>
+                  <div class="zone-status">
+                    <div class="status-dot" id="status-pool_spa"></div>
+                    <span id="status-text-pool_spa">OFFLINE</span>
+                  </div>
+                </div>
+                <div class="gauge-wrap">
+                  <svg class="gauge-svg" viewBox="0 0 88 88">
+                    <circle class="g-track" cx="44" cy="44" r="38" />
+                    <circle
+                      class="g-fill"
+                      id="gauge-pool_spa"
+                      cx="44"
+                      cy="44"
+                      r="38"
+                    />
+                  </svg>
+                  <div class="gauge-center">
+                    <span class="gauge-val" id="pressure-pool_spa">--</span>
+                    <span class="gauge-unit">PSI</span>
+                  </div>
+                </div>
+                <div style="display: none">
+                  <div
+                    class="pressure-fill"
+                    id="pressure-bar-pool_spa"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Flow Rate</span>
+                  <span class="metric-value" id="flow-pool_spa">-- LPM</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Gate Position</span>
+                  <span class="metric-value" id="valve-pool_spa">--%</span>
+                </div>
+              </div>
+
+              <!-- ── Kitchen & Laundry ── -->
+              <div class="sensor-card" id="card-kitchen">
+                <div class="zone-hdr">
+                  <div>
+                    <div class="zone-icon">🍽</div>
+                    <div class="zone-name">KITCHEN &amp; LAUNDRY</div>
+                    <div class="zone-sub">Service Operations</div>
+                  </div>
+                  <div class="zone-status">
+                    <div class="status-dot" id="status-kitchen"></div>
+                    <span id="status-text-kitchen">OFFLINE</span>
+                  </div>
+                </div>
+                <div class="gauge-wrap">
+                  <svg class="gauge-svg" viewBox="0 0 88 88">
+                    <circle class="g-track" cx="44" cy="44" r="38" />
+                    <circle
+                      class="g-fill"
+                      id="gauge-kitchen"
+                      cx="44"
+                      cy="44"
+                      r="38"
+                    />
+                  </svg>
+                  <div class="gauge-center">
+                    <span class="gauge-val" id="pressure-kitchen">--</span>
+                    <span class="gauge-unit">PSI</span>
+                  </div>
+                </div>
+                <div style="display: none">
+                  <div
+                    class="pressure-fill"
+                    id="pressure-bar-kitchen"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Flow Rate</span>
+                  <span class="metric-value" id="flow-kitchen">-- LPM</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Gate Position</span>
+                  <span class="metric-value" id="valve-kitchen">--%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security Status -->
+          <div class="panel">
+            <div class="panel-hdr">
+              <div class="panel-title security-normal" id="security-header">
+                SECURITY STATUS
+              </div>
+              <div class="panel-chip chip-green" id="sec-badge">SECURE</div>
+            </div>
+            <div class="sec-body">
+              <div class="sec-state-label">System Status</div>
+              <div id="security-status" class="ok">
+                All systems operating normally. HMAC + timestamp + sequence
+                verification active.
+              </div>
+              <div class="last-check-row">
+                Last security check: <span id="last-check">--:--:--</span>
+              </div>
+
+              <!-- Attack alert box -->
+              <div class="attack-alert" id="attack-alert">
+                <div class="atk-hdr">⚠ ATTACK DETECTED &amp; BLOCKED</div>
+                <div class="atk-details">
+                  <span
+                    ><strong>Type:</strong>
+                    <span id="attack-type">--</span></span
+                  >
+                  <span
+                    ><strong>Source:</strong>
+                    <span id="attack-source">--</span></span
+                  >
+                  <span
+                    ><strong>Target:</strong>
+                    <span id="attack-target">--</span></span
+                  >
+                </div>
+                <div class="atk-blocked">✓ INTERCEPTED BY SECURITY LAYER</div>
+              </div>
+
+              <!-- Defense integrity checks -->
+              <div class="def-checks">
+                <div class="def-row">
+                  <div class="def-dot">✓</div>
+                  <span class="def-name"
+                    >HMAC-SHA256 Signature Verification</span
+                  >
+                  <span class="def-state">ACTIVE</span>
+                </div>
+                <div class="def-row">
+                  <div class="def-dot">✓</div>
+                  <span class="def-name">Timestamp Freshness (30s window)</span>
+                  <span class="def-state">ACTIVE</span>
+                </div>
+                <div class="def-row">
+                  <div class="def-dot">✓</div>
+                  <span class="def-name">Sequence Counter Anti-Replay</span>
+                  <span class="def-state">ACTIVE</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /left-col -->
+
+        <!-- ═══ RIGHT COLUMN: Event Log ═══ -->
+        <div class="right-col">
+          <div class="panel">
+            <div class="panel-hdr">
+              <div class="panel-title">SECURITY EVENT LOG</div>
+              <div class="panel-chip chip-green" id="log-badge">LIVE</div>
+            </div>
+            <div class="event-log" id="event-log">
+              <div class="event-item">
+                <span class="event-icon">↻</span>
+                <span class="event-time">--:--:--</span>
+                <span class="event-message">Waiting for events...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /content-grid -->
+
+      <!-- FOOTER DEFENSE STRIP -->
+      <div class="footer-strip">
+        <div class="footer-label">Active Defenses</div>
+        <div class="footer-checks">
+          <div class="f-check">
+            <div class="f-led"></div>
+            <span class="f-check-name">HMAC-SHA256</span>
+            <span class="f-check-state">ENFORCED</span>
+          </div>
+          <div class="f-check">
+            <div class="f-led"></div>
+            <span class="f-check-name">TIMESTAMP</span>
+            <span class="f-check-state">ENFORCED</span>
+          </div>
+          <div class="f-check">
+            <div class="f-led"></div>
+            <span class="f-check-name">SEQ COUNTER</span>
+            <span class="f-check-state">ENFORCED</span>
+          </div>
+          <div class="f-check">
+            <div class="f-led"></div>
+            <span class="f-check-name">mTLS/TLS</span>
+            <span class="f-check-state">ENFORCED</span>
+          </div>
+        </div>
+        <div class="footer-session">
+          SESSION: <span id="session-id">--</span>
+        </div>
+      </div>
+    </div>
+    <!-- /wrap -->
+
+    <!-- ══════════════════════════════════════════════════════
+       JAVASCRIPT — all original logic preserved + enhanced
+  ══════════════════════════════════════════════════════ -->
+    <script>
+      // ── Boot overlay ──────────────────────────────────────
+      setTimeout(() => {
+        const b = document.getElementById("boot");
+        b.classList.add("fade-out");
+        setTimeout(() => b.remove(), 700);
+      }, 2400);
+
+      // Session ID
+      document.getElementById("session-id").textContent =
+        "HS-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // Uptime counter
+      const startTime = Date.now();
+      setInterval(() => {
+        const s = Math.floor((Date.now() - startTime) / 1000);
+        const m = Math.floor(s / 60)
+          .toString()
+          .padStart(2, "0");
+        const sec = (s % 60).toString().padStart(2, "0");
+        document.getElementById("stat-uptime").textContent = m + ":" + sec;
+      }, 1000);
+
+      // ── App state ─────────────────────────────────────────
+      const state = {
+        valid: 0,
+        rejected: 0,
+        total: 0,
+        zones: {
+          main_building: { online: false, lastSeen: null },
+          pool_spa: { online: false, lastSeen: null },
+          kitchen: { online: false, lastSeen: null },
+        },
+      };
+
+      // ── WebSocket ─────────────────────────────────────────
+      let ws = null;
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT = 10;
+
+      function connectWebSocket() {
+        addEvent("valid", "Connecting to monitoring system...");
+        try {
+          ws = new WebSocket("ws://localhost:8765");
+        } catch (e) {
+          addEvent("attack", "WebSocket error: " + e.message);
+          return;
+        }
+
+        ws.onopen = () => {
+          reconnectAttempts = 0;
+          addEvent("valid", "Connected to security monitoring system");
+          document.querySelector(".live-dot").style.background = "var(--green)";
+        };
+
+        ws.onmessage = (ev) => {
+          try {
+            handleMessage(JSON.parse(ev.data));
+          } catch (e) {
+            console.error("Parse error:", e);
+          }
+        };
+
+        ws.onclose = () => {
+          document.querySelector(".live-dot").style.background = "var(--red)";
+          if (reconnectAttempts < MAX_RECONNECT) {
+            reconnectAttempts++;
+            addEvent(
+              "attack",
+              "Disconnected. Retry " +
+                reconnectAttempts +
+                "/" +
+                MAX_RECONNECT +
+                "...",
+            );
+            setTimeout(connectWebSocket, 2000);
+          } else {
+            addEvent(
+              "attack",
+              "Connection failed. Is subscriber_dashboard.py running?",
+            );
+          }
+        };
+
+        ws.onerror = () => {};
+      }
+
+      // ── Message routing ───────────────────────────────────
+      function handleMessage(msg) {
+        switch (msg.type) {
+          case "valid_message":
+            handleValidMessage(msg.data);
+            break;
+          case "attack":
+            handleAttack(msg.data);
+            break;
+          case "anomaly":
+            handleAnomaly(msg.data);
+            break;
+          case "stats_update":
+            updateStats(msg.data);
+            break;
+        }
+      }
+
+      function handleValidMessage(data) {
+        state.valid++;
+        state.total++;
+
+        let zone = "main_building";
+        if (data.zone) zone = data.zone;
+        else if (data.topic) {
+          if (data.topic.includes("pool")) zone = "pool_spa";
+          else if (data.topic.includes("kitchen")) zone = "kitchen";
+        }
+
+        state.zones[zone].online = true;
+        state.zones[zone].lastSeen = new Date();
+
+        updateZoneCard(zone, data);
+        updateStatsDisplay();
+
+        addEvent(
+          "valid",
+          getZoneName(zone) +
+            ": pressure=" +
+            (data.pressure_psi || "--") +
+            " PSI, flow=" +
+            (data.flow_rate_gpm || "--") +
+            " LPM",
+        );
+      }
+
+      function handleAttack(data) {
+        state.rejected++;
+        state.total++;
+
+        showAttackAlert(data);
+        triggerThreatMode();
+
+        const card = document.getElementById("card-main_building");
+        if (card) {
+          card.classList.add("attack-active");
+          setTimeout(() => card.classList.remove("attack-active"), 3000);
+        }
+
+        updateStatsDisplay();
+        addEvent(
+          "attack",
+          "BLOCKED: " +
+            (data.attack_type || data.reasons?.join(", ") || "Unknown") +
+            " from " +
+            (data.source || "unknown"),
+        );
+      }
+
+      function handleAnomaly(data) {
+        state.total++;
+        updateStatsDisplay();
+        showAnomalyStatus(data);
+
+        addEvent(
+          "anomaly",
+          "ANOMALY: " +
+            (data.anomaly_type || data.attack_type || "Unknown") +
+            (data.reasons?.length ? " — " + data.reasons.join(", ") : "") +
+            " (" +
+            (data.source || "unknown") +
+            ")",
+        );
+      }
+
+      // ── Threat mode (global flash + header change) ────────
+      function triggerThreatMode() {
+        const flash = document.getElementById("threat-flash");
+        const pill = document.getElementById("threat-indicator");
+        const label = document.getElementById("threat-label");
+        const badge = document.getElementById("sec-badge");
+
+        flash.classList.add("active");
+        pill.className = "threat-pill critical";
+        label.textContent = "THREAT LEVEL: HIGH";
+        badge.className = "panel-chip chip-red";
+        badge.textContent = "ALERT";
+
+        setTimeout(() => {
+          flash.classList.remove("active");
+          pill.className = "threat-pill normal";
+          label.textContent = "THREAT LEVEL: LOW";
+          badge.className = "panel-chip chip-green";
+          badge.textContent = "SECURE";
+        }, 5000);
+      }
+
+      // ── Attack alert panel ────────────────────────────────
+      function showAttackAlert(data) {
+        const alertBox = document.getElementById("attack-alert");
+        const header = document.getElementById("security-header");
+        const status = document.getElementById("security-status");
+
+        document.getElementById("attack-type").textContent =
+          data.attack_type || data.reasons?.join(", ") || "Security Violation";
+        document.getElementById("attack-source").textContent =
+          data.source || data.device_id || "unknown";
+        document.getElementById("attack-target").textContent = "Water System";
+
+        alertBox.classList.add("visible");
+        header.className = "panel-title security-alert";
+        header.textContent = "⚠ SECURITY ALERT";
+        status.textContent =
+          "Attack detected and blocked by HMAC + sequence + timestamp verification!";
+        status.className = "threat";
+
+        setTimeout(() => {
+          alertBox.classList.remove("visible");
+          header.className = "panel-title security-normal";
+          header.textContent = "SECURITY STATUS";
+          status.textContent =
+            "All systems operating normally. HMAC + timestamp + sequence verification active.";
+          status.className = "ok";
+        }, 5000);
+      }
+
+      function showAnomalyStatus(data) {
+        const header = document.getElementById("security-header");
+        const status = document.getElementById("security-status");
+        const badge = document.getElementById("sec-badge");
+
+        header.className = "panel-title security-warning";
+        header.textContent = "⚠ OPERATIONAL ANOMALY";
+        badge.className = "panel-chip chip-amber";
+        badge.textContent = "WARN";
+
+        const detail =
+          data.reasons?.join(", ") ||
+          data.description ||
+          "Operational anomaly detected.";
+        status.textContent = detail;
+        status.className = "ok";
+
+        setTimeout(() => {
+          header.className = "panel-title security-normal";
+          header.textContent = "SECURITY STATUS";
+          badge.className = "panel-chip chip-green";
+          badge.textContent = "SECURE";
+          status.textContent =
+            "All systems operating normally. HMAC + timestamp + sequence verification active.";
+          status.className = "ok";
+        }, 5000);
+      }
+
+      // ── Zone card update ──────────────────────────────────
+      function updateZoneCard(zone, data) {
+        // Status dot
+        const dot = document.getElementById("status-" + zone);
+        const txt = document.getElementById("status-text-" + zone);
+        if (dot) dot.classList.add("online");
+        if (txt) txt.textContent = "ONLINE";
+
+        const pressure = data.pressure_psi || 0;
+        const flow = data.flow_rate_gpm || 0;
+        const valve = data.valve_position || 0;
+
+        // SVG circular gauge (r=38, circumference≈238.76)
+        const gauge = document.getElementById("gauge-" + zone);
+        if (gauge) {
+          const pct = Math.min(pressure / 80, 1);
+          const offset = 238.76 * (1 - pct);
+          gauge.style.strokeDashoffset = offset;
+          if (pressure > 65) gauge.classList.add("danger");
+          else gauge.classList.remove("danger");
+        }
+
+        // Gauge centre value
+        const gVal = document.getElementById("pressure-" + zone);
+        if (gVal) {
+          gVal.textContent = pressure.toFixed(1);
+          gVal.classList.toggle("danger", pressure > 65);
+        }
+
+        // Keep hidden pressure bar in sync (JS compat)
+        const bar = document.getElementById("pressure-bar-" + zone);
+        if (bar) bar.style.width = Math.min((pressure / 80) * 100, 100) + "%";
+
+        animateMetric("flow-" + zone, flow.toFixed(1) + " LPM");
+        animateMetric("valve-" + zone, valve.toFixed(1) + "%");
+
+        // Card scan shimmer
+        const card = document.getElementById("card-" + zone);
+        if (card) {
+          card.classList.remove("updating");
+          void card.offsetWidth; // reflow to retrigger animation
+          card.classList.add("updating");
+        }
+      }
+
+      function animateMetric(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = value;
+        el.classList.remove("updating");
+        void el.offsetWidth;
+        el.classList.add("updating");
+        setTimeout(() => el.classList.remove("updating"), 500);
+      }
+
+      // ── Stats display ─────────────────────────────────────
+      function updateStatsDisplay() {
+        punchCounter("stat-valid", state.valid);
+        punchCounter("stat-rejected", state.rejected);
+        punchCounter("stat-total", state.total);
+        document.getElementById("last-check").textContent = formatTime(
+          new Date(),
+        );
+      }
+
+      function punchCounter(id, val) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = val;
+        el.style.transform = "scale(1.18)";
+        setTimeout(() => (el.style.transform = "scale(1)"), 200);
+      }
+
+      function updateStats(data) {
+        state.valid = data.valid || 0;
+        state.rejected = data.rejected || 0;
+        state.total = data.total || 0;
+        updateStatsDisplay();
+      }
+
+      // ── Event log ─────────────────────────────────────────
+      function addEvent(type, message) {
+        const log = document.getElementById("event-log");
+        const icon =
+          type === "attack" ? "▲" : type === "anomaly" ? "◆" : "●";
+        const time = formatTime(new Date());
+
+        const item = document.createElement("div");
+        item.className = "event-item " + type;
+        item.innerHTML =
+          '<span class="event-icon">' +
+          icon +
+          "</span>" +
+          '<span class="event-time">' +
+          time +
+          "</span>" +
+          '<span class="event-message">' +
+          message +
+          "</span>";
+
+        if (log.firstChild) log.insertBefore(item, log.firstChild);
+        else log.appendChild(item);
+
+        // Cap at 60 entries
+        while (log.children.length > 60) log.removeChild(log.lastChild);
+      }
+
+      // ── Helpers ───────────────────────────────────────────
+      function getZoneName(zone) {
+        return (
+          {
+            main_building: "Main Building",
+            pool_spa: "Pool & Spa",
+            kitchen: "Kitchen & Laundry",
+          }[zone] || zone
+        );
+      }
+
+      function formatTime(d) {
+        return d.toLocaleTimeString("en-US", { hour12: false });
+      }
+
+      function updateClock() {
+        document.getElementById("current-time").textContent = formatTime(
+          new Date(),
+        );
+      }
+
+      // ── Init ──────────────────────────────────────────────
+      function init() {
+        updateClock();
+        setInterval(updateClock, 1000);
+        connectWebSocket();
+
+        // Clear "waiting" placeholder once real events arrive
+        setTimeout(() => {
+          const log = document.getElementById("event-log");
+          if (log.children.length === 1) {
+            const m = log.firstChild.querySelector(".event-message");
+            if (m && m.textContent === "Waiting for events...")
+              log.innerHTML = "";
+          }
+        }, 3000);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
